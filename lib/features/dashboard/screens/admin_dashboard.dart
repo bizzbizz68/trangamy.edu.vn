@@ -3,6 +3,7 @@ import '../../auth/models/user_model.dart';
 import '../../hsk_exam/admin/screens/question_bank_dashboard.dart';
 import '../widgets/app_sidebar.dart';
 import '../widgets/sidebar_toggle_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserModel user;
@@ -32,13 +33,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     ),
     NavigationItem(
       icon: Icons.people,
-      label: 'Quản Lý Người Dùng',
+      label: 'Quản Lý User',
       color: Colors.blue,
-    ),
-    NavigationItem(
-      icon: Icons.school,
-      label: 'Quản Lý Giáo Viên',
-      color: Colors.green,
     ),
     NavigationItem(
       icon: Icons.quiz,
@@ -62,14 +58,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 0:
         return _buildOverviewContent();
       case 1:
-        return _buildUserManagementContent();
+        return _buildUserManagementContent(); 
       case 2:
-        return _buildTeacherManagementContent();
+        return const QuestionBankDashboard();
       case 3:
-        return _buildExamManagementContent();
-      case 4:
         return _buildAnalyticsContent();
-      case 5:
+      case 4:
         return _buildSettingsContent();
       default:
         return _buildOverviewContent();
@@ -89,11 +83,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         const SizedBox(height: 24),
         Expanded(
-          child: GridView.count(
-            crossAxisCount: 3,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 1.5,
+          child: GridView(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 350, 
+              mainAxisExtent: 180,    
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
             children: [
               _buildStatCard(
                 title: 'Tổng Người Dùng',
@@ -120,7 +116,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 color: Colors.purple,
               ),
               _buildStatCard(
-                title: 'Bài Thi Hôm Nay',
+                title: 'Bài Thi Hôm NaY',
                 value: '245',
                 icon: Icons.assignment_turned_in,
                 color: Colors.teal,
@@ -146,28 +142,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }) {
     return Card(
       elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 48, color: color),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: color,
+            Icon(icon, size: 40, color: color),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
               ),
             ),
           ],
@@ -177,44 +180,146 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildUserManagementContent() {
-    return const Center(
+    return DefaultTabController(
+      length: 4,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.people, size: 64, color: Colors.blue),
-          SizedBox(height: 16),
-          Text(
-            'Quản Lý Người Dùng',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          const Text(
+            'Quản Lý Tài Khoản',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 8),
-          Text('Tính năng đang được phát triển...'),
+          const SizedBox(height: 16),
+          const TabBar(
+            isScrollable: true,
+            labelColor: Colors.blue,
+            tabs: [
+              Tab(text: 'Tất cả'),
+              Tab(text: 'Admin'),
+              Tab(text: 'Giáo viên'),
+              Tab(text: 'Học sinh'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return const Center(child: Text('Lỗi tải dữ liệu'));
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data!.docs;
+
+                if (docs.isEmpty) {
+                  return const Center(child: Text('Chưa có người dùng nào'));
+                }
+
+                return Card(
+                  child: ListView.separated(
+                    itemCount: docs.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final data = docs[index].data() as Map<String, dynamic>;
+                      final name = data['name'] ?? 'Không tên';
+                      final email = data['email'] ?? 'Không email';
+                      final role = data['role'] ?? 'student';
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U'),
+                        ),
+                        title: Text(name),
+                        subtitle: Text(email),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildRoleBadge(role),
+                            IconButton(
+                              icon: const Icon(Icons.security, color: Colors.orange),
+                              onPressed: () => _showPermissionDialog(context, docs[index].id, role),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTeacherManagementContent() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.school, size: 64, color: Colors.green),
-          SizedBox(height: 16),
-          Text(
-            'Quản Lý Giáo Viên',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text('Tính năng đang được phát triển...'),
-        ],
+  // Hàm build giao diện badge phân quyền đẹp mắt
+  Widget _buildRoleBadge(String role) {
+    Color badgeColor;
+    switch (role.toLowerCase()) {
+      case 'admin':
+        badgeColor = Colors.red;
+        break;
+      case 'teacher':
+      case 'giáo viên':
+        badgeColor = Colors.green;
+        break;
+      case 'student':
+      case 'học sinh':
+        badgeColor = Colors.blue;
+        break;
+      default:
+        badgeColor = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: badgeColor.withOpacity(0.5)),
+      ),
+      child: Text(
+        role.toUpperCase(),
+        style: TextStyle(
+          color: badgeColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
 
-  Widget _buildExamManagementContent() {
-    // Embed Question Bank Dashboard
-    return const QuestionBankDashboard();
+  // Hàm xử lý hiển thị dialog phân quyền
+  void _showPermissionDialog(BuildContext context, String userId, String currentRole) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Thay đổi quyền tài khoản'),
+          content: Text('Quyền hiện tại: $currentRole\nBạn có muốn cập nhật quyền không?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Ví dụ chuyển đổi logic mẫu hoặc bạn có thể tạo Dropdown tùy chọn quyền tại đây
+                String nextRole = currentRole == 'admin' ? 'student' : 'admin'; 
+                await FirebaseFirestore.instance.collection('users').doc(userId).update({
+                  'role': nextRole,
+                });
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Thay Đổi'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildAnalyticsContent() {
@@ -229,7 +334,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
-          Text('Tính năng đang được phát triển...'),
+          Text('Biểu đồ tăng trưởng và kết quả thi'),
         ],
       ),
     );
@@ -247,7 +352,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
-          Text('Tính năng đang được phát triển...'),
+          Text('Cấu hình các tham số hệ thống và API'),
         ],
       ),
     );
@@ -269,14 +374,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       body: Stack(
         children: [
-          // Main Content Area (below) - Animated with sidebar
           AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
             margin: EdgeInsets.only(left: _contentLeftMargin),
             child: Column(
               children: [
-                // Top AppBar
+                // AppBar Header
                 Container(
                   height: 60,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -303,10 +407,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          // TODO: Show notifications
-                        },
-                        tooltip: 'Thông báo',
+                        onPressed: () {},
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -319,8 +420,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ],
                   ),
                 ),
-
-                // Content
+                // Main Content Area
                 Expanded(
                   child: Container(
                     color: Colors.grey[50],
@@ -331,8 +431,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ),
-          
-          // Sidebar on top (LAST child = on top in Stack)
+          // Sidebar
           AppSidebar(
             key: _sidebarKey,
             user: widget.user,
@@ -345,8 +444,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             },
             onStateChanged: _updateSidebarState,
           ),
-          
-          // Toggle button (animated)
+          // Nút toggle Sidebar
           SidebarToggleButton(
             sidebarState: _sidebarState,
             onTap: () => _sidebarKey.currentState?.toggleSidebar(),

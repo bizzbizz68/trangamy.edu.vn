@@ -41,7 +41,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       print('🔐 AuthWrapper: Found Firebase user: ${firebaseUser.email}');
       
       // Get user data from Firestore
-      final user = await _authService.getUserData(firebaseUser.uid);
+      await _authService.initialize();
+final user = _authService.currentUser;
       
       if (user == null) {
         print('🔐 AuthWrapper: User data not found in Firestore, logging out...');
